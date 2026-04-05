@@ -13,6 +13,13 @@ The app runs a full analyst-to-portfolio-manager pipeline, streams agent progres
 - Caches latest analysis per ticker for fast reruns.
 - Persists recent analysis history for browsing and rerunning.
 
+## Preview (Because people like images, not text!)
+### See your agents debate for the quality of the stocks
+<img width="1564" height="797" alt="image" src="https://github.com/user-attachments/assets/af941535-6e9d-476c-8759-da66be535be3" />
+### See the key takeaways from the analysis presented
+<img width="1889" height="871" alt="image" src="https://github.com/user-attachments/assets/198a6744-8948-49ce-bffc-54db830c411e" />
+### Keep your previous runs stored locally
+
 ## Agent Pipeline Architecture
 
 The backend keeps the original trading workflow and stage sequence:
