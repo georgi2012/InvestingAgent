@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Investment Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #091019;
+      --bg-2: #101a27;
+      --panel: #142133;
+      --line: #24354c;
+      --txt: #dce9ff;
+      --muted: #8da3be;
+      --cyan: #49c9ef;
+      --green: #5ed998;
+      --yellow: #f4c27a;
+      --red: #ff7f7f;
+      --sans: "Space Grotesk", sans-serif;
+      --mono: "IBM Plex Mono", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      color: var(--txt);
+      font-family: var(--mono);
+      background:
+        radial-gradient(circle at 85% 10%, rgba(73, 201, 239, 0.12), transparent 30%),
+        radial-gradient(circle at 10% 90%, rgba(94, 217, 152, 0.1), transparent 28%),
+        var(--bg);
+    }
+    .page { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    .topbar {
+      border-bottom: 1px solid var(--line);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: rgba(9, 16, 25, 0.78);
+      backdrop-filter: blur(8px);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      border: 1px solid rgba(73, 201, 239, 0.6);
+      display: grid;
+      place-items: center;
+      font-family: var(--sans);
+      font-weight: 700;
+      color: var(--cyan);
+      background: linear-gradient(145deg, rgba(73, 201, 239, 0.25), rgba(73, 201, 239, 0.08));
+    }
+    .title { font-family: var(--sans); font-size: 18px; font-weight: 700; }
+    .sub { color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    .top-meta { display: flex; align-items: center; gap: 11px; color: var(--muted); font-size: 11px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .dot.live { background: var(--green); box-shadow: 0 0 10px rgba(94, 217, 152, .8); }
+    .layout { display: grid; grid-template-columns: 330px 1fr; min-height: 0; }
+    .left { border-right: 1px solid var(--line); padding: 16px; overflow-y: auto; }
+    .right { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+    .card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(20, 33, 51, 0.95), rgba(16, 26, 39, 0.88));
+      border-radius: 13px;
+      padding: 13px;
+      margin-bottom: 10px;
+    }
+    .label {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 5px;
+    }
+    input, select, button { font-family: var(--mono); font-size: 13px; }
+    input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg-2);
+      color: var(--txt);
+      padding: 9px 10px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--cyan); }
+    .ticker { color: var(--cyan); font-size: 20px; letter-spacing: .06em; font-weight: 600; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .note { margin-top: 7px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .rounds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .round {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--bg-2);
+      color: var(--muted);
+      padding: 8px 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .round.active { background: rgba(73, 201, 239, .13); border-color: var(--cyan); color: var(--txt); }
+    .cache-row { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; gap: 8px; }
+    .toggle {
+      width: 38px;
+      height: 22px;
+      border-radius: 999px;
+      position: relative;
+      cursor: pointer;
+      background: var(--cyan);
+      border: 1px solid rgba(73, 201, 239, .35);
+    }
+    .thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #071119;
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      transition: .2s;
+    }
+    .cache-banner {
+      display: none;
+      margin-top: 8px;
+      border-radius: 9px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg-2);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .cache-head {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+    }
+    .cache-clear { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 10px; }
+    .run {
+      width: 100%;
+      border: none;
+      border-radius: 11px;
+      cursor: pointer;
+      padding: 12px 10px;
+      color: #041018;
+      font-weight: 700;
+      font-family: var(--sans);
+      font-size: 15px;
+      background: linear-gradient(145deg, #49c9ef, #3db3d6);
+    }
+    .run:disabled { opacity: .6; cursor: not-allowed; }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      background: rgba(20, 33, 51, .7);
+      padding: 0 10px;
+    }
+    .tab {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 13px 9px;
+      margin-right: 7px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .view { display: none; min-height: 0; height: 100%; }
+    .view.active { display: grid; min-height: 0; }
+    #view-live { grid-template-rows: auto 1fr; }
+    .pipeline { border-bottom: 1px solid var(--line); padding: 13px 14px; background: rgba(20, 33, 51, .55); }
+    .pipeline-head {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+    }
+    .bar-wrap { height: 4px; border-radius: 999px; background: #1b2d43; overflow: hidden; margin-bottom: 9px; }
+    .bar { height: 100%; width: 0; background: linear-gradient(90deg, #49c9ef, #5ed998); transition: width .35s; }
+    .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 6px;
+      font-size: 9px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      display: flex;
+      justify-content: space-between;
+    }
+    .step.running { border-color: rgba(244, 194, 122, .8); background: rgba(244, 194, 122, .12); }
+    .step.done { border-color: rgba(94, 217, 152, .8); background: rgba(94, 217, 152, .12); }
+    .step.error { border-color: rgba(255, 127, 127, .8); background: rgba(255, 127, 127, .12); }
+    .terminal { padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #091019, #08111d); }
+    .empty { min-height: 100%; display: grid; place-content: center; text-align: center; color: var(--muted); gap: 4px; line-height: 1.6; }
+    .log { display: block; font-size: 12px; line-height: 1.75; margin-bottom: 2px; }
+    .ts { color: #68819b; margin-right: 8px; }
+    .t-INIT{color:#9fb3c8}.t-AGENTS{color:#88d6ff}.t-RESEARCH{color:#c2a8ff}.t-DEBATE{color:#f4c27a}
+    .t-TRADER{color:#8ff0c7}.t-RISK{color:#ffd09b}.t-PORTFOLIO{color:#f5f5a4}.t-CACHE{color:#7ce7b0}
+    .t-DONE{color:#67f7a4;font-weight:500}.t-ERROR{color:#ff9696}
+    .decision, .history { padding: 14px; overflow-y: auto; }
+    .summary {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 13px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .act { font-family: var(--sans); font-size: 42px; line-height: 1; font-weight: 700; }
+    .buy { color: var(--green); }
+    .sell { color: var(--red); }
+    .hold { color: var(--yellow); }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+    }
+    .report {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 14px;
+      font-size: 12px;
+      line-height: 1.75;
+      color: #c8daef;
+    }
+    .report p { margin-bottom: 8px; }
+    .report h3 { margin: 12px 0 7px; color: var(--cyan); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .report ul { list-style: none; margin-bottom: 8px; }
+    .report li { position: relative; padding-left: 14px; margin-bottom: 5px; }
+    .report li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
+    .hitem {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel);
+      padding: 11px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    .hitem:hover { border-color: rgba(73, 201, 239, .75); }
+    .hticker { font-family: var(--sans); font-size: 17px; font-weight: 700; color: var(--cyan); min-width: 62px; }
+    .hmeta { flex: 1; font-size: 11px; line-height: 1.45; color: var(--muted); }
+    .haction { min-width: 43px; text-align: center; font-size: 13px; font-weight: 600; }
+    .hdel { border: none; background: transparent; color: var(--muted); cursor: pointer; padding: 4px; }
+    .hdel:hover { color: var(--red); }
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .72);
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      z-index: 100;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      width: min(900px, 100%);
+      max-height: 88vh;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+    .mhead { padding: 13px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+    .mtitle { font-family: var(--sans); font-size: 16px; color: var(--cyan); font-weight: 700; }
+    .mclose { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; }
+    .mbody { padding: 14px; overflow-y: auto; }
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--bg-2);
+      color: var(--txt);
+      border-radius: 8px;
+      padding: 7px 9px;
+      cursor: pointer;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .left { border-right: none; border-bottom: 1px solid var(--line); }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">AI</div>
+        <div>
+          <div class="title">AI Investment Agent</div>
+          <div class="sub">Multi-agent recommendation engine</div>
+        </div>
+      </div>
+      <div class="top-meta">
+        <span class="dot" id="ollamaDot"></span>
+        <span id="ollamaText">Ollama unknown</span>
+        <span>|</span>
+        <span id="clock"></span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="left">
+        <div class="card">
+          <label class="label" for="ticker">Ticker Symbol</label>
+          <input id="ticker" class="ticker" placeholder="e.g. NVDA" maxlength="10" autocomplete="off">
+
+          <div style="height:10px"></div>
+          <label class="label" for="analysisDate">Analysis Date</label>
+          <input id="analysisDate" type="date">
+
+          <div style="height:10px"></div>
+          <label class="label" for="provider">Provider</label>
+          <select id="provider">
+            <option value="azure" selected>Azure OpenAI</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="ollama">Ollama</option>
+          </select>
+          <div class="note" id="providerStatus">Azure is selected by default.</div>
+
+          <div style="height:10px"></div>
+          <div class="split">
+            <div>
+              <label class="label" for="deepModel">Deep Model</label>
+              <select id="deepModel"></select>
+            </div>
+            <div>
+              <label class="label" for="quickModel">Quick Model</label>
+              <select id="quickModel"></select>
+            </div>
+          </div>
+
+          <div style="height:10px"></div>
+          <label class="label">Debate Rounds</label>
+          <div class="rounds">
+            <button type="button" class="round active" data-round="1">1 Fast</button>
+            <button type="button" class="round" data-round="2">2 Deep</button>
+            <button type="button" class="round" data-round="3">3 Full</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <label class="label">Cache</label>
+          <div class="cache-row">
+            <span style="color:var(--muted)">Use cached data</span>
+            <div class="toggle" id="cacheToggle"><div class="thumb" id="cacheThumb"></div></div>
+          </div>
+          <div class="cache-row">
+            <span style="color:var(--muted)">Max age</span>
+            <select id="cacheDays" style="width:120px">
+              <option value="1">1 day</option>
+              <option value="7" selected>7 days</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+            </select>
+          </div>
+          <div class="cache-banner" id="cacheBanner">
+            <div class="cache-head">
+              <span id="cacheTitle">Cached result</span>
+              <button class="cache-clear" id="cacheClearBtn">clear</button>
+            </div>
+            <div id="cacheDetail"></div>
+          </div>
+        </div>
+
+        <button class="run" type="button" id="runButton">Run Analysis</button>
+      </aside>
+
+      <section class="right">
+        <div class="tabs">
+          <button class="tab active" data-tab="live">Live Run</button>
+          <button class="tab" data-tab="decision">Decision</button>
+          <button class="tab" data-tab="history">History <span id="historyCount"></span></button>
+        </div>
+
+        <div id="view-live" class="view active">
+          <div class="pipeline">
+            <div class="pipeline-head">
+              <span>Agent Pipeline</span>
+              <span id="pipelineStatus">Idle</span>
+            </div>
+            <div class="bar-wrap"><div class="bar" id="progressBar"></div></div>
+            <div class="steps" id="stepsGrid"></div>
+          </div>
+          <div class="terminal" id="terminal">
+            <div class="empty" id="terminalEmpty">
+              <p>Enter a ticker and run analysis.</p>
+              <p>Agent output streams here in real time.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-decision" class="view">
+          <div class="decision" id="decisionArea">
+            <div class="empty">
+              <p>No decision yet.</p>
+              <p>Run an analysis to generate one.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-history" class="view">
+          <div class="history" id="historyArea">
+            <div class="empty">No saved analyses yet.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="overlay" id="historyModal" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="mhead">
+        <div class="mtitle" id="modalTitle">History Entry</div>
+        <button class="mclose" type="button" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="mbody" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const PROVIDER_MODELS = {
+      azure: { deep: ["gpt-5.4"], quick: ["gpt-5.4-mini"] },
+      openai: { deep: ["gpt-5.2", "gpt-5"], quick: ["gpt-5-mini"] },
+      anthropic: { deep: ["claude-sonnet-4-6", "claude-opus-4-6"], quick: ["claude-haiku-4-5"] },
+      ollama: { deep: ["qwen2.5:7b", "llama3.1:8b", "deepseek-r1:8b"], quick: ["qwen2.5:7b", "llama3.2:3b", "mistral:7b"] }
+    };
+
+    const STEPS = [
+      { id: "fundamentals", name: "Fundamentals" },
+      { id: "sentiment", name: "Sentiment" },
+      { id: "news", name: "News" },
+      { id: "technical", name: "Technical" },
+      { id: "bull", name: "Bull Res." },
+      { id: "bear", name: "Bear Res." },
+      { id: "debate", name: "Debate" },
+      { id: "trader", name: "Trader" },
+      { id: "risk", name: "Risk Mgr" },
+      { id: "portfolio", name: "Port. Mgr" }
+    ];
+
+    let debateRounds = 1;
+    let cacheEnabled = true;
+    let pollTimer = null;
+    let activeJobId = null;
+
+    function esc(v) {
+      return String(v || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function inferAction(text) {
+      const source = String(text || "");
+      const final = source.match(/FINAL TRANSACTION PROPOSAL[:\s*]+([A-Z]+)/i);
+      if (final) {
+        const v = final[1].toUpperCase();
+        if (v.includes("BUY")) return { label: "BUY", cls: "buy" };
+        if (v.includes("SELL")) return { label: "SELL", cls: "sell" };
+        if (v.includes("HOLD")) return { label: "HOLD", cls: "hold" };
+      }
+      const up = source.toUpperCase();
+      if (up.includes("SELL")) return { label: "SELL", cls: "sell" };
+      if (up.includes("BUY")) return { label: "BUY", cls: "buy" };
+      return { label: "HOLD", cls: "hold" };
+    }
+
+    function tickClock() {
+      const clock = document.getElementById("clock");
+      if (clock) clock.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false });
+    }
+
+    function setProviderModels() {
+      const provider = document.getElementById("provider").value;
+      const set = PROVIDER_MODELS[provider] || PROVIDER_MODELS.azure;
+      document.getElementById("deepModel").innerHTML = set.deep.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+      document.getElementById("quickModel").innerHTML = set.quick.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+
+      const status = document.getElementById("providerStatus");
+      if (provider === "azure") status.textContent = "Azure remains the default provider.";
+      else if (provider === "ollama") { status.textContent = "Ollama selected. Local model availability is checked."; checkOllama(); }
+      else status.textContent = "Provider changed. Agent pipeline logic remains the same.";
+    }
+
+    async function checkOllama() {
+      try {
+        const data = await fetch("/api/ollama/models").then((r) => r.json());
+        const dot = document.getElementById("ollamaDot");
+        const text = document.getElementById("ollamaText");
+        if (data.available) {
+          dot.classList.add("live");
+          text.textContent = `Ollama online (${data.models.length} model${data.models.length === 1 ? "" : "s"})`;
+          if (document.getElementById("provider").value === "ollama" && data.models.length) {
+            document.getElementById("deepModel").innerHTML = data.models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+            document.getElementById("quickModel").innerHTML = data.models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+          }
+        } else {
+          dot.classList.remove("live");
+          text.textContent = "Ollama offline";
+        }
+      } catch (_) {
+        document.getElementById("ollamaDot").classList.remove("live");
+        document.getElementById("ollamaText").textContent = "Ollama check failed";
+      }
+    }
+
+    function buildStepsGrid() {
+      const grid = document.getElementById("stepsGrid");
+      grid.innerHTML = STEPS.map((s) => `<div class="step" id="step-${s.id}"><span>${esc(s.name)}</span><span id="icon-${s.id}">-</span></div>`).join("");
+    }
+
+    function setPipelineStatus(text) { document.getElementById("pipelineStatus").textContent = text; }
+
+    function resetSteps() {
+      STEPS.forEach((s) => {
+        const step = document.getElementById(`step-${s.id}`);
+        const icon = document.getElementById(`icon-${s.id}`);
+        if (step) step.className = "step";
+        if (icon) icon.textContent = "-";
+      });
+      document.getElementById("progressBar").style.width = "0%";
+      setPipelineStatus("Idle");
+    }
+
+    function updateSteps(steps, currentStep) {
+      let done = 0;
+      STEPS.forEach((s) => {
+        const st = steps[s.id] || "pending";
+        const step = document.getElementById(`step-${s.id}`);
+        const icon = document.getElementById(`icon-${s.id}`);
+        if (!step || !icon) return;
+        step.className = "step";
+        if (st === "running") { step.classList.add("running"); icon.textContent = "..."; }
+        else if (st === "done") { step.classList.add("done"); icon.textContent = "OK"; done += 1; }
+        else if (st === "error") { step.classList.add("error"); icon.textContent = "ERR"; }
+        else icon.textContent = "-";
+      });
+      document.getElementById("progressBar").style.width = `${Math.round(done / STEPS.length * 100)}%`;
+      if (currentStep) {
+        const s = STEPS.find((x) => x.id === currentStep);
+        setPipelineStatus(s ? `Running: ${s.name}` : "Running...");
+      } else {
+        setPipelineStatus(done === STEPS.length ? "Complete" : "Idle");
+      }
+    }
+
+    function markAllDone() {
+      STEPS.forEach((s) => {
+        const step = document.getElementById(`step-${s.id}`);
+        const icon = document.getElementById(`icon-${s.id}`);
+        if (step) step.className = "step done";
+        if (icon) icon.textContent = "OK";
+      });
+      document.getElementById("progressBar").style.width = "100%";
+      setPipelineStatus("Complete");
+    }
+
+    function logLine(ts, msg) {
+      const terminal = document.getElementById("terminal");
+      const empty = document.getElementById("terminalEmpty");
+      if (empty) empty.remove();
+      const tag = (String(msg).match(/^\[(\w+)\]/) || ["", "INFO"])[1];
+      const row = document.createElement("span");
+      row.className = `log t-${tag}`;
+      row.innerHTML = `<span class="ts">[${esc(ts || "--:--:--")}]</span>${esc(msg)}`;
+      terminal.appendChild(row);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function toggleCache() {
+      cacheEnabled = !cacheEnabled;
+      const toggle = document.getElementById("cacheToggle");
+      const thumb = document.getElementById("cacheThumb");
+      toggle.style.background = cacheEnabled ? "var(--cyan)" : "#2c3f56";
+      thumb.style.right = cacheEnabled ? "2px" : "auto";
+      thumb.style.left = cacheEnabled ? "auto" : "2px";
+      checkTickerCache(document.getElementById("ticker").value.trim().toUpperCase());
+    }
+
+    async function checkTickerCache(ticker) {
+      const banner = document.getElementById("cacheBanner");
+      if (!ticker || !cacheEnabled) { banner.style.display = "none"; return; }
+      try {
+        const data = await fetch(`/api/cache/${encodeURIComponent(ticker)}`).then((r) => r.json());
+        if (!data.exists) { banner.style.display = "none"; return; }
+        const maxDays = parseInt(document.getElementById("cacheDays").value, 10);
+        const stale = data.age_days > maxDays;
+        banner.style.display = "block";
+        banner.style.borderColor = stale ? "rgba(244,194,122,.6)" : "rgba(94,217,152,.6)";
+        banner.style.background = stale ? "rgba(244,194,122,.08)" : "rgba(94,217,152,.08)";
+        document.getElementById("cacheTitle").textContent = stale ? "Cache is stale" : "Cached result available";
+        document.getElementById("cacheDetail").innerHTML =
+          `${esc(ticker)} - ${esc(data.age_label)} - ${esc(data.provider)} / ${esc(data.model)}<br>` +
+          (stale ? `Older than ${maxDays} days. Fresh run will be used.` : "Will use cache unless disabled.");
+      } catch (_) {
+        banner.style.display = "none";
+      }
+    }
+
+    async function clearCache() {
+      const ticker = document.getElementById("ticker").value.trim().toUpperCase();
+      if (!ticker) return;
+      await fetch(`/api/cache/${encodeURIComponent(ticker)}`, { method: "DELETE" });
+      document.getElementById("cacheBanner").style.display = "none";
+    }
+
+    function renderDecisionReport(text) {
+      const lines = String(text || "").split("\n");
+      let html = "";
+      let inList = false;
+      const close = () => { if (inList) { html += "</ul>"; inList = false; } };
+      lines.forEach((raw) => {
+        const line = raw.trim();
+        if (!line) { close(); return; }
+        if (line.startsWith("## ")) { close(); html += `<h3>${esc(line.slice(3))}</h3>`; return; }
+        if (line.startsWith("### ")) { close(); html += `<h3>${esc(line.slice(4))}</h3>`; return; }
+        if (line.startsWith("- ") || line.startsWith("* ")) {
+          if (!inList) { html += "<ul>"; inList = true; }
+          html += `<li>${esc(line.slice(2)).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")}</li>`;
+          return;
+        }
+        close();
+        html += `<p>${esc(line).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")}</p>`;
+      });
+      close();
+      return html || "<p>No output received.</p>";
+    }
+
+    function showDecision(text, ticker, date, fromCache) {
+      const a = inferAction(text);
+      document.getElementById("decisionArea").innerHTML = `
+        <div class="summary">
+          <div>
+            <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${esc(ticker)} - ${esc(date)} - Portfolio Decision</div>
+            <div class="act ${a.cls}">${a.label}</div>
+            <div style="margin-top:7px;color:var(--muted)">Consensus recommendation from the multi-agent pipeline</div>
+          </div>
+          <div style="text-align:right">
+            <span class="pill">${fromCache ? "From cache" : "Fresh run"}</span>
+            <div style="margin-top:8px;color:var(--muted);font-size:11px">${esc(document.getElementById("provider").value)}</div>
+          </div>
+        </div>
+        <div class="report">${renderDecisionReport(text)}</div>`;
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+      document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
+      if (name === "history") loadHistory();
+    }
+
+    async function runAnalysis() {
+      const ticker = document.getElementById("ticker").value.trim().toUpperCase();
+      const date = document.getElementById("analysisDate").value;
+      if (!ticker) { alert("Enter a ticker symbol."); return; }
+      if (!date) { alert("Select an analysis date."); return; }
+
+      document.getElementById("terminal").innerHTML = "";
+      document.getElementById("decisionArea").innerHTML = '<div class="empty"><p>Analysis in progress...</p></div>';
+      resetSteps();
+      switchTab("live");
+
+      const btn = document.getElementById("runButton");
+      btn.disabled = true;
+      btn.textContent = "Analyzing...";
+
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ticker,
+            date,
+            provider: document.getElementById("provider").value,
+            deep_model: document.getElementById("deepModel").value,
+            quick_model: document.getElementById("quickModel").value,
+            debate_rounds: debateRounds,
+            use_cache: cacheEnabled,
+            cache_max_days: parseInt(document.getElementById("cacheDays").value, 10)
+          })
+        });
+        const data = await res.json();
+        activeJobId = data.job_id;
+        let last = 0;
+
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(async () => {
+          try {
+            const s = await fetch(`/api/status/${encodeURIComponent(activeJobId)}`).then((r) => r.json());
+            (s.output || []).slice(last).forEach((item) => logLine(item.ts, item.text || item));
+            last = (s.output || []).length;
+            if (s.steps) updateSteps(s.steps, s.current_step);
+
+            if (s.status === "done") {
+              clearInterval(pollTimer);
+              btn.disabled = false;
+              btn.textContent = "Run Analysis";
+              markAllDone();
+              showDecision(s.decision, ticker, date, s.from_cache || false);
+              switchTab("decision");
+              loadHistory();
+              checkTickerCache(ticker);
+            } else if (s.status === "error") {
+              clearInterval(pollTimer);
+              btn.disabled = false;
+              btn.textContent = "Run Analysis";
+              logLine("--:--:--", `[ERROR] ${s.error || "Unknown error"}`);
+              setPipelineStatus("Error");
+            }
+          } catch (_) {}
+        }, 4000);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "Run Analysis";
+        logLine("--:--:--", `[ERROR] ${err.message}`);
+      }
+    }
+
+    async function loadHistory() {
+      const area = document.getElementById("historyArea");
+      try {
+        const rows = await fetch("/api/results").then((r) => r.json());
+        document.getElementById("historyCount").textContent = rows.length ? `(${rows.length})` : "";
+        if (!rows.length) { area.innerHTML = '<div class="empty">No saved analyses yet.</div>'; return; }
+        area.innerHTML = rows.map((r) => {
+          const a = inferAction(r.decision);
+          return `<div class="hitem" onclick="openResult(${r.id})">
+            <div class="hticker">${esc(r.ticker)}</div>
+            <div class="hmeta">
+              <div>${esc(r.date)} - ${esc(r.provider)} - ${esc(r.deep_model || "")}</div>
+              <div>${esc((r.created_at || "").slice(0,16))}</div>
+            </div>
+            <div class="haction ${a.cls}">${a.label}</div>
+            <button class="hdel" onclick="deleteResult(event, ${r.id})" title="Delete">x</button>
+          </div>`;
+        }).join("");
+      } catch (_) {
+        area.innerHTML = '<div class="empty">Could not load history.</div>';
+      }
+    }
+
+    async function openResult(id) {
+      try {
+        const r = await fetch(`/api/results/${id}`).then((x) => x.json());
+        const a = inferAction(r.decision);
+        document.getElementById("modalTitle").textContent = `${r.ticker} - ${r.date}`;
+        document.getElementById("modalBody").innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px">
+            <div>
+              <div class="act ${a.cls}" style="font-size:30px">${a.label}</div>
+              <div style="color:var(--muted);font-size:11px;margin-top:4px">${esc(r.provider)} - ${esc(r.deep_model || "")} - ${esc(r.created_at || "")}</div>
+            </div>
+            <button class="btn" onclick="rerunAnalysis(${JSON.stringify(r.ticker)}, ${JSON.stringify(r.date)})">Re-run</button>
+          </div>
+          <div class="report">${renderDecisionReport(r.decision || "")}</div>`;
+        document.getElementById("historyModal").classList.add("open");
+      } catch (_) {}
+    }
+
+    function rerunAnalysis(ticker, date) {
+      closeModal();
+      document.getElementById("ticker").value = ticker;
+      document.getElementById("analysisDate").value = date;
+      switchTab("live");
+      runAnalysis();
+    }
+
+    async function deleteResult(event, id) {
+      event.stopPropagation();
+      if (!confirm("Delete this analysis from history?")) return;
+      await fetch(`/api/results/${id}`, { method: "DELETE" });
+      loadHistory();
+    }
+
+    function closeModal(event) {
+      const modal = document.getElementById("historyModal");
+      if (!event || event.target === modal) modal.classList.remove("open");
+    }
+
+    function initDate() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      document.getElementById("analysisDate").value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    function wireEvents() {
+      document.getElementById("provider").addEventListener("change", setProviderModels);
+      document.getElementById("runButton").addEventListener("click", runAnalysis);
+      document.getElementById("cacheToggle").addEventListener("click", toggleCache);
+      document.getElementById("cacheDays").addEventListener("change", () => checkTickerCache(document.getElementById("ticker").value.trim().toUpperCase()));
+      document.getElementById("cacheClearBtn").addEventListener("click", clearCache);
+      document.getElementById("ticker").addEventListener("input", () => {
+        clearTimeout(window._cacheTimer);
+        window._cacheTimer = setTimeout(() => checkTickerCache(document.getElementById("ticker").value.trim().toUpperCase()), 350);
+      });
+      document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+      document.querySelectorAll(".round").forEach((b) => b.addEventListener("click", () => {
+        debateRounds = parseInt(b.dataset.round, 10);
+        document.querySelectorAll(".round").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active");
+      }));
+    }
+
+    function init() {
+      initDate();
+      tickClock();
+      setInterval(tickClock, 1000);
+      buildStepsGrid();
+      resetSteps();
+      setProviderModels();
+      loadHistory();
+      wireEvents();
+      checkOllama();
+    }
+
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>
