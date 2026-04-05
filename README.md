@@ -19,6 +19,7 @@ The app runs a full analyst-to-portfolio-manager pipeline, streams agent progres
 ### See the key takeaways from the analysis presented
 <img width="1889" height="871" alt="image" src="https://github.com/user-attachments/assets/198a6744-8948-49ce-bffc-54db830c411e" />
 ### Keep your previous runs stored locally
+<img width="1476" height="702" alt="image" src="https://github.com/user-attachments/assets/b1e4dddd-b3b6-4db6-b23a-d0a0978dbc3a" />
 
 ## Agent Pipeline Architecture
 
