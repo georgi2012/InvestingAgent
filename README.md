@@ -28,29 +28,44 @@ The app runs a full analyst-to-portfolio-manager pipeline, streams agent progres
 
 ## Agent Pipeline Architecture
 
-The backend keeps the original trading workflow and stage sequence:
+This system implements a role-specialized, graph-orchestrated multi-agent inference pipeline for equity analysis.  
+Agents are intentionally separated by function (signal extraction, adversarial reasoning, execution planning, and risk governance), then merged into a final portfolio decision.
 
-1. `fundamentals` (quick model)
-2. `sentiment` (quick model)
-3. `news` (quick model)
-4. `technical` (quick model)
-5. `bull` researcher (deep model)
-6. `bear` researcher (deep model)
-7. `debate` rounds (deep model)
-8. `trader` (deep model)
-9. `risk` manager (deep model)
-10. `portfolio` manager (deep model)
+### Execution Graph
 
-### Runtime behavior
+1. `fundamentals` (quick model): valuation, growth, profitability, balance-sheet signals.
+2. `sentiment` (quick model): retail/market mood extraction from social and news context.
+3. `news` (quick model): event-level and macro narrative extraction.
+4. `technical` (quick model): momentum/volatility pattern context.
+5. `bull` researcher (deep model): constructs strongest pro-position thesis.
+6. `bear` researcher (deep model): constructs strongest contra-position thesis.
+7. `debate` (deep model, N rounds): adversarial refinement between bull and bear theses.
+8. `trader` (deep model): synthesizes a concrete trade recommendation.
+9. `risk` manager (deep model): applies downside/risk controls to proposal.
+10. `portfolio` manager (deep model): emits final BUY / SELL / HOLD decision.
 
-- Up to 3 retries are attempted on transient connection errors.
-- Optional real-time enrichment includes Reddit plus Yahoo Finance news from multi-source integrations:
+### AI System Design Notes
+
+- **Graph orchestration**: execution is driven through `TradingAgentsGraph`, preserving deterministic stage order while allowing model/provider interchange.
+- **Model routing policy**: fast/low-cost models handle broad signal fan-out (`fundamentals` -> `technical`); high-capability models handle synthesis, adversarial debate, and governance.
+- **Adversarial reasoning loop**: explicit bull-vs-bear rounds reduce one-sided bias and improve argument robustness before trade proposal generation.
+- **Context control**: LangChain chat batches are bounded to `100k` chars to reduce overflow and hard failure risk on long chains.
+- **Failure strategy**: transient transport/API errors trigger up to 3 attempts with graph rebuild, improving resilience during unstable provider windows.
+- **Provider abstraction**: OpenAI, Azure OpenAI, Anthropic, and Ollama are supported through a unified config path.
+- **Azure compatibility layer**: requests are normalized to `/openai/v1/*`, and deployment-name semantics are enforced.
+
+### External Signal Enrichment (Sentiment/News)
+
+The sentiment/news stage augments internal reasoning with live external sources:
+
+- Reddit search feeds (`wallstreetbets`, `stocks`, `investing`, `options`)
+- RapidAPI `stocktwits-sentiment-message-analytics-api`
 - RapidAPI `yahoo-finance15`
 - RapidAPI `yh-finance`
 - Free Yahoo Finance search endpoint
-- Free Yahoo Finance RSS feed
-- LangChain message batches are truncated at `100k` characters to reduce context overflow risk.
-- For Azure, requests are normalized to `/openai/v1/*` routes and deployment-name model usage.
+- Free Yahoo Finance RSS endpoint
+
+News payloads are merged and deduplicated before injection into the agent context.
 
 ## Tech Stack
 
@@ -165,6 +180,12 @@ The app runs with `debug=False` and `use_reloader=False` to avoid duplicate Flas
 ## Security Notes
 - Keep secrets in user/system environment variables or secure secret stores.
 - Review generated outputs before making any trading decision.
+
+## Attribution
+
+This project builds on the open-source TradingAgents framework. A substantial part of the underlying multi-agent architecture and AI workflow logic is adapted from:
+
+- [TradingAgents by TauricResearch](https://github.com/TauricResearch/TradingAgents)
 
 ## Disclaimer
 
