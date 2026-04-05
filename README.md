@@ -31,7 +31,11 @@ The backend keeps the original trading workflow and stage sequence:
 ### Runtime behavior
 
 - Up to 3 retries are attempted on transient connection errors.
-- Optional real-time sentiment enrichment is fetched from Reddit and RapidAPI sources.
+- Optional real-time enrichment includes Reddit plus Yahoo Finance news from multi-source integrations:
+- RapidAPI `yahoo-finance15`
+- RapidAPI `yh-finance`
+- Free Yahoo Finance search endpoint
+- Free Yahoo Finance RSS feed
 - LangChain message batches are truncated at `100k` characters to reduce context overflow risk.
 - For Azure, requests are normalized to `/openai/v1/*` routes and deployment-name model usage.
 
@@ -101,6 +105,7 @@ $env:AZURE_OPENAI_ENDPOINT="https://<your-resource>.openai.azure.com/"
 $env:AZURE_OPENAI_API_KEY="<your-key>"
 $env:AZURE_OPENAI_DEEP_DEPLOYMENT="gpt-5.4"
 $env:AZURE_OPENAI_QUICK_DEPLOYMENT="gpt-5.4-mini"
+$env:RAPIDAPI_KEY="<optional-rapidapi-key>"
 ```
 
 Optional proxy cleanup when local proxy interferes:

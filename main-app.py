@@ -5,7 +5,9 @@ import ssl as _ssl
 import threading
 import time
 import traceback
+import urllib.parse as _uparse
 import urllib.request as _ureq
+import xml.etree.ElementTree as _ET
 from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, render_template, request
@@ -50,6 +52,52 @@ def fetch_sentiment_context(ticker, log=None):
 
     rapidapi_key = os.environ.get("RAPIDAPI_KEY", "")
     results = []
+    yahoo_news_items = []
+
+    def _normalize_pub_date(value):
+        if value is None:
+            return ""
+        if isinstance(value, (int, float)):
+            try:
+                return datetime.utcfromtimestamp(int(value)).strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                return str(value)
+        text = str(value).strip()
+        if not text:
+            return ""
+        return text[:16]
+
+    def _add_news_item(title, source, published=""):
+        t = str(title or "").strip()
+        if not t:
+            return
+        yahoo_news_items.append(
+            {
+                "title": t,
+                "source": source,
+                "published": _normalize_pub_date(published),
+            }
+        )
+
+    def _collect_articles_from_payload(payload, source):
+        def walk(node):
+            if isinstance(node, dict):
+                title = node.get("title") or node.get("headline")
+                published = (
+                    node.get("pubDate")
+                    or node.get("published_at")
+                    or node.get("published")
+                    or node.get("providerPublishTime")
+                    or node.get("time")
+                )
+                _add_news_item(title, source, published)
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        walk(payload)
 
     # 1) StockTwits sentiment
     if rapidapi_key:
@@ -182,11 +230,12 @@ def fetch_sentiment_context(ticker, log=None):
     except Exception as exc:
         _log(f"[SENTIMENT] Reddit error: {exc}")
 
-    # 3) Yahoo Finance news
+    # 3) Yahoo Finance news via multiple sources (RapidAPI + free Yahoo endpoints)
     if rapidapi_key:
+        # Source A: RapidAPI yahoo-finance15
         try:
             host = "yahoo-finance15.p.rapidapi.com"
-            url = f"https://{host}/api/v1/markets/news?ticker={ticker}"
+            url = f"https://{host}/api/v1/markets/news?ticker={_uparse.quote(ticker)}"
             req = _ureq.Request(
                 url,
                 headers={
@@ -196,18 +245,85 @@ def fetch_sentiment_context(ticker, log=None):
                 },
             )
             with _ureq.urlopen(req, timeout=8, context=_SSL_CTX) as response:
-                articles = json.loads(response.read()).get("body", [])[:8]
-
-            headlines = "\n".join(
-                [
-                    f"  - [{article.get('pubDate', '')[:16]}] {article.get('title', '')[:90]}"
-                    for article in articles
-                ]
-            )
-            results.append(f"=== RECENT NEWS (Yahoo Finance) ===\n{headlines}")
-            _log(f"[SENTIMENT] Yahoo Finance: {len(articles)} articles")
+                payload = json.loads(response.read())
+            _collect_articles_from_payload(payload.get("body", []), "rapid:yahoo-finance15")
+            _log("[SENTIMENT] Yahoo news source added: rapid:yahoo-finance15")
         except Exception as exc:
-            _log(f"[SENTIMENT] Yahoo Finance error: {exc}")
+            _log(f"[SENTIMENT] Yahoo news source error (rapid:yahoo-finance15): {exc}")
+
+        # Source B: RapidAPI yh-finance
+        try:
+            host = "yh-finance.p.rapidapi.com"
+            url = (
+                f"https://{host}/news/list?region=US&snippetCount=28&s={_uparse.quote(ticker)}"
+            )
+            req = _ureq.Request(
+                url,
+                headers={
+                    "x-rapidapi-host": host,
+                    "x-rapidapi-key": rapidapi_key,
+                    "Content-Type": "application/json",
+                },
+            )
+            with _ureq.urlopen(req, timeout=8, context=_SSL_CTX) as response:
+                payload = json.loads(response.read())
+            _collect_articles_from_payload(payload, "rapid:yh-finance")
+            _log("[SENTIMENT] Yahoo news source added: rapid:yh-finance")
+        except Exception as exc:
+            _log(f"[SENTIMENT] Yahoo news source error (rapid:yh-finance): {exc}")
+
+    # Source C: Free Yahoo finance search endpoint (no key)
+    try:
+        url = f"https://query1.finance.yahoo.com/v1/finance/search?q={_uparse.quote(ticker)}&newsCount=15"
+        req = _ureq.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with _ureq.urlopen(req, timeout=8, context=_SSL_CTX) as response:
+            payload = json.loads(response.read())
+        _collect_articles_from_payload(payload.get("news", []), "free:yahoo-search")
+        _log("[SENTIMENT] Yahoo news source added: free:yahoo-search")
+    except Exception as exc:
+        _log(f"[SENTIMENT] Yahoo news source error (free:yahoo-search): {exc}")
+
+    # Source D: Free Yahoo finance RSS (no key)
+    try:
+        url = (
+            "https://feeds.finance.yahoo.com/rss/2.0/headline"
+            f"?s={_uparse.quote(ticker)}&region=US&lang=en-US"
+        )
+        req = _ureq.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with _ureq.urlopen(req, timeout=8, context=_SSL_CTX) as response:
+            xml_text = response.read().decode("utf-8", errors="ignore")
+        root = _ET.fromstring(xml_text)
+        for item in root.findall(".//item"):
+            _add_news_item(
+                item.findtext("title", default=""),
+                "free:yahoo-rss",
+                item.findtext("pubDate", default=""),
+            )
+        _log("[SENTIMENT] Yahoo news source added: free:yahoo-rss")
+    except Exception as exc:
+        _log(f"[SENTIMENT] Yahoo news source error (free:yahoo-rss): {exc}")
+
+    if yahoo_news_items:
+        deduped = []
+        seen = set()
+        for item in yahoo_news_items:
+            key = item["title"].strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+            if len(deduped) >= 12:
+                break
+
+        lines = []
+        for item in deduped:
+            when = item["published"] or "unknown-time"
+            src = item["source"]
+            lines.append(f"  - [{src} | {when}] {item['title'][:110]}")
+
+        if lines:
+            results.append("=== RECENT NEWS (Yahoo Finance Multi-Source) ===\n" + "\n".join(lines))
+            _log(f"[SENTIMENT] Yahoo news aggregated: {len(lines)} unique headlines")
 
     if not results:
         return None
